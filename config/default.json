@@ -1,0 +1,26 @@
+{
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "user": "postgres",
+    "password": "",
+    "dbname": "identity_service",
+    "sslmode": "disable"
+  },
+  "redis": {
+    "host": "localhost",
+    "port": 6379,
+    "password": "",
+    "db": 0
+  },
+  "kafka": {
+    "brokers": ["localhost:9092"],
+    "topic": "identity_service_events"
+  },
+  "auth": {
+    "accessTokenDuration": 15,
+    "refreshTokenDuration": 10080,
+    "signingKey": "",
+    "hashingCost": 10
+  }
+}
