@@ -43,6 +43,14 @@ type Config struct {
 		SigningKey           string
 		HashingCost          int
 	}
+	Server struct {
+		Host           string
+		Port           int
+		ReadTimeout    int // in seconds
+		WriteTimeout   int // in seconds
+		MaxHeaderBytes int
+	}
+	WebAppURL string // URL of the web application frontend
 }
 
 // Factory is responsible for creating and wiring application services
@@ -127,6 +135,8 @@ func (f *Factory) CreateUserService() (services.UserService, error) {
 		cacheService,
 		eventPublisher,
 		f.logger,
+		defaultCacheConfig,
+		f.config.WebAppURL,
 	)
 
 	return userService, nil
@@ -142,6 +152,39 @@ func (f *Factory) CreateEmailService() (services.EmailService, error) {
 func (f *Factory) CreateMetricsService() (services.MetricsService, error) {
 	metricsService := metrics.NewMetricsService()
 	return metricsService, nil
+}
+
+// CreateTokenService creates and configures the token service
+func (f *Factory) CreateTokenService() (services.TokenService, error) {
+	// Create Redis client for token revocation storage
+	redisClient, err := redis.NewClient(redis.Config{
+		Host:     f.config.Redis.Host,
+		Port:     f.config.Redis.Port,
+		Password: f.config.Redis.Password,
+		DB:       f.config.Redis.DB,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Redis client: %w", err)
+	}
+
+	// Configure token service
+	tokenConfig := services.TokenConfig{
+		AccessTokenDuration:        time.Duration(f.config.Auth.AccessTokenDuration) * time.Minute,
+		RefreshTokenDuration:      time.Duration(f.config.Auth.RefreshTokenDuration) * time.Minute,
+		ResetTokenDuration:        24 * time.Hour,    // Default 24 hours for reset tokens
+		VerificationTokenDuration: 48 * time.Hour,    // Default 48 hours for verification tokens
+		SigningKey:               []byte(f.config.Auth.SigningKey),
+	}
+
+	// Create key manager for JWT signing
+	keyManager := token.NewLocalKeyManager()
+
+	// Create Redis cache service wrapper
+	cacheService := redis.NewCacheService(redisClient, &defaultCacheConfig{})
+
+	// Create token service with Redis-based revocation storage
+	tokenService := token.NewService(tokenConfig, cacheService, keyManager)
+	return tokenService, nil
 }
 
 // Close closes all connections and resources

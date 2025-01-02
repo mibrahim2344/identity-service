@@ -3,7 +3,11 @@ package metrics
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/mibrahim2344/identity-service/internal/domain/services"
 )
+
+// Ensure metricsService implements services.MetricsService
+var _ services.MetricsService = (*metricsService)(nil)
 
 type metricsService struct {
 	requestDuration *prometheus.HistogramVec

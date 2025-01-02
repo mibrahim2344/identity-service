@@ -3,7 +3,7 @@ package email
 import (
 	"fmt"
 
-	"github.com/mohamedibrahem/microservices-template/identity-service/internal/domain/services"
+	"github.com/mibrahim2344/identity-service/internal/domain/services"
 )
 
 type emailService struct {

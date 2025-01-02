@@ -20,6 +20,8 @@ type Service struct {
 	cacheService    services.CacheService
 	eventPublisher  services.EventPublisher
 	logger          *zap.Logger
+	config          services.CacheConfig
+	webAppURL       string
 }
 
 // NewService creates a new user service
@@ -30,6 +32,8 @@ func NewService(
 	cacheService services.CacheService,
 	eventPublisher services.EventPublisher,
 	logger *zap.Logger,
+	config services.CacheConfig,
+	webAppURL string,
 ) *Service {
 	return &Service{
 		userRepo:        userRepo,
@@ -38,6 +42,8 @@ func NewService(
 		cacheService:    cacheService,
 		eventPublisher:  eventPublisher,
 		logger:          logger,
+		config:          config,
+		webAppURL:       webAppURL,
 	}
 }
 
@@ -69,10 +75,12 @@ func (s *Service) RegisterUser(ctx context.Context, input services.RegisterUserI
 	}
 
 	// Send verification email
-	if err := s.eventPublisher.PublishUserEvent(ctx, "user.registered", events.NewUserRegisteredEvent(
+	if err := s.eventPublisher.PublishUserEvent(ctx, string(events.UserRegistered), events.NewUserRegisteredEvent(
 		user.ID,
 		user.Email,
 		user.Username,
+		input.FirstName,
+		input.LastName,
 	)); err != nil {
 		s.logger.Error("failed to publish user registered event", zap.Error(err))
 	}
@@ -174,9 +182,12 @@ func (s *Service) VerifyEmail(ctx context.Context, token string) error {
 		return fmt.Errorf("failed to update user: %w", err)
 	}
 
-	event := events.NewUserEmailVerifiedEvent(user.ID)
-	if err := s.eventPublisher.PublishUserEvent(ctx, "user.email.verified", event); err != nil {
-		s.logger.Error("failed to publish email verified event", zap.Error(err))
+	// Publish email verified event
+	if err := s.eventPublisher.PublishUserEvent(ctx, string(events.UserVerified), events.NewUserVerifiedEvent(
+		user.ID,
+		user.Email,
+	)); err != nil {
+		s.logger.Error("failed to publish user verified event", zap.Error(err))
 	}
 
 	return nil
@@ -200,9 +211,14 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string) error 
 		return fmt.Errorf("failed to generate reset token: %w", err)
 	}
 
-	event := events.NewUserPasswordResetRequestedEvent(user.ID, token)
-	if err := s.eventPublisher.PublishUserEvent(ctx, "password_reset_requested", event); err != nil {
-		s.logger.Error("failed to publish password reset requested event", zap.Error(err))
+	// Publish password reset requested event
+	resetLink := fmt.Sprintf("%s/reset-password?token=%s", s.webAppURL, token)
+	if err := s.eventPublisher.PublishUserEvent(ctx, string(events.UserPasswordReset), events.NewUserPasswordResetEvent(
+		user.ID,
+		user.Email,
+		resetLink,
+	)); err != nil {
+		s.logger.Error("failed to publish password reset event", zap.Error(err))
 	}
 
 	return nil
@@ -234,8 +250,11 @@ func (s *Service) ResetPassword(ctx context.Context, token, newPassword string) 
 		return fmt.Errorf("failed to update user: %w", err)
 	}
 
-	event := events.NewUserPasswordChangedEvent(user.ID)
-	if err := s.eventPublisher.PublishUserEvent(ctx, "password_changed", event); err != nil {
+	// Publish password changed event
+	if err := s.eventPublisher.PublishUserEvent(ctx, string(events.UserPasswordChange), events.NewUserPasswordChangedEvent(
+		user.ID,
+		user.Email,
+	)); err != nil {
 		s.logger.Error("failed to publish password changed event", zap.Error(err))
 	}
 
@@ -350,7 +369,7 @@ func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	}
 
 	// Publish user deleted event
-	event := events.NewUserDeletedEvent(user.ID)
+	event := events.NewUserDeletedEvent(user.ID, user.Email)
 	if err := s.eventPublisher.PublishUserEvent(ctx, "user.deleted", event); err != nil {
 		s.logger.Error("failed to publish user deleted event", zap.Error(err))
 	}
@@ -389,8 +408,10 @@ func (s *Service) ChangePassword(ctx context.Context, id uuid.UUID, currentPassw
 	}
 
 	// Publish password changed event
-	event := events.NewUserPasswordChangedEvent(user.ID)
-	if err := s.eventPublisher.PublishUserEvent(ctx, "user.password.changed", event); err != nil {
+	if err := s.eventPublisher.PublishUserEvent(ctx, string(events.UserPasswordChange), events.NewUserPasswordChangedEvent(
+		user.ID,
+		user.Email,
+	)); err != nil {
 		s.logger.Error("failed to publish password changed event", zap.Error(err))
 	}
 

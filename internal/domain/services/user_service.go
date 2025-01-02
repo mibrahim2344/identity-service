@@ -9,10 +9,12 @@ import (
 
 // RegisterUserInput represents the input for user registration
 type RegisterUserInput struct {
-	Email    string
-	Username string
-	Password string
-	Role     models.Role
+	Email     string
+	Username  string
+	Password  string
+	FirstName string
+	LastName  string
+	Role      models.Role
 }
 
 // UpdateUserInput represents the input for updating user details
@@ -74,4 +76,7 @@ type UserService interface {
 
 	// VerifyEmail verifies a user's email address
 	VerifyEmail(ctx context.Context, token string) error
+
+	// RefreshToken refreshes an access token using a refresh token
+	RefreshToken(ctx context.Context, refreshToken string) (*TokenResponse, error)
 }
