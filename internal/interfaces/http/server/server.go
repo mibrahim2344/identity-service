@@ -13,14 +13,14 @@ import (
 
 // Config represents server configuration
 type Config struct {
-	Host            string
-	Port            int
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
-	MaxHeaderBytes  int
-	AllowedOrigins  []string
-	AllowedMethods  []string
-	AllowedHeaders  []string
+	Host           string
+	Port           int
+	ReadTimeout    time.Duration
+	WriteTimeout   time.Duration
+	MaxHeaderBytes int
+	AllowedOrigins []string
+	AllowedMethods []string
+	AllowedHeaders []string
 }
 
 // Server represents the HTTP server
@@ -29,9 +29,9 @@ type Server struct {
 	userService    services.UserService
 	tokenService   services.TokenService
 	metricsService services.MetricsService
-	emailService   services.EmailService
 	logger         *zap.Logger
 	httpServer     *http.Server
+	router         *router.Router
 }
 
 // NewServer creates a new server instance
@@ -40,7 +40,6 @@ func NewServer(
 	userService services.UserService,
 	tokenService services.TokenService,
 	metricsService services.MetricsService,
-	emailService services.EmailService,
 	logger *zap.Logger,
 ) *Server {
 	return &Server{
@@ -48,32 +47,43 @@ func NewServer(
 		userService:    userService,
 		tokenService:   tokenService,
 		metricsService: metricsService,
-		emailService:   emailService,
 		logger:         logger,
 	}
 }
 
 // Start starts the HTTP server
 func (s *Server) Start() error {
-	r := router.NewRouter(s.userService, s.tokenService, s.metricsService, s.emailService, s.logger)
-
+	s.logger.Info("Setting up routes...")
+	s.router = router.NewRouter(s.userService, s.tokenService, s.metricsService, s.logger)
+	handler := s.router.Setup()
+	
+	addr := fmt.Sprintf("%s:%d", s.config.Host, s.config.Port)
+	s.logger.Info("Starting HTTP server", 
+		zap.String("address", addr),
+		zap.Int("port", s.config.Port),
+	)
+	
 	s.httpServer = &http.Server{
-		Addr:           fmt.Sprintf("%s:%d", s.config.Host, s.config.Port),
-		Handler:        r.Setup(),
-		ReadTimeout:    s.config.ReadTimeout,
-		WriteTimeout:   s.config.WriteTimeout,
+		Addr:           addr,
+		Handler:        handler,
+		ReadTimeout:    time.Duration(s.config.ReadTimeout) * time.Second,
+		WriteTimeout:   time.Duration(s.config.WriteTimeout) * time.Second,
 		MaxHeaderBytes: s.config.MaxHeaderBytes,
 	}
 
-	s.logger.Info("starting HTTP server",
-		zap.String("address", s.httpServer.Addr),
+	s.logger.Info("Server is listening", zap.String("address", addr))
+	return s.httpServer.ListenAndServe()
+}
+
+// setupRoutes configures all the routes for our server
+func (s *Server) setupRoutes() http.Handler {
+	s.router = router.NewRouter(
+		s.userService,
+		s.tokenService,
+		s.metricsService,
+		s.logger,
 	)
-
-	if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		return fmt.Errorf("failed to start server: %w", err)
-	}
-
-	return nil
+	return s.router.Setup()
 }
 
 // Stop gracefully stops the HTTP server

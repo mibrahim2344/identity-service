@@ -12,19 +12,25 @@ func TestNewFactory(t *testing.T) {
 	// Create test config
 	config := Config{
 		Database: struct {
-			Host     string
-			Port     int
-			User     string
-			Password string
-			DBName   string
-			SSLMode  string
+			Host                   string
+			Port                   int
+			User                   string
+			Password               string
+			DBName                 string
+			SSLMode                string
+			MaxIdleConns           int
+			MaxOpenConns           int
+			ConnMaxLifetimeMinutes int
 		}{
-			Host:     "localhost",
-			Port:     5432,
-			User:     "test_user",
-			Password: "test_password",
-			DBName:   "test_db",
-			SSLMode:  "disable",
+			Host:                   "localhost",
+			Port:                   5432,
+			User:                   "test_user",
+			Password:               "test_password",
+			DBName:                 "test_db",
+			SSLMode:                "disable",
+			MaxIdleConns:           10,
+			MaxOpenConns:           100,
+			ConnMaxLifetimeMinutes: 60,
 		},
 		Redis: struct {
 			Host     string
@@ -47,13 +53,13 @@ func TestNewFactory(t *testing.T) {
 		Auth: struct {
 			AccessTokenDuration  int
 			RefreshTokenDuration int
-			SigningKey          string
-			HashingCost         int
+			SigningKey           string
+			HashingCost          int
 		}{
 			AccessTokenDuration:  15,
 			RefreshTokenDuration: 10080,
-			SigningKey:          "test_key",
-			HashingCost:         10,
+			SigningKey:           "test_key",
+			HashingCost:          10,
 		},
 	}
 
@@ -74,19 +80,25 @@ func TestCreateUserService(t *testing.T) {
 	// Create test config with mock values
 	config := Config{
 		Database: struct {
-			Host     string
-			Port     int
-			User     string
-			Password string
-			DBName   string
-			SSLMode  string
+			Host                   string
+			Port                   int
+			User                   string
+			Password               string
+			DBName                 string
+			SSLMode                string
+			MaxIdleConns           int
+			MaxOpenConns           int
+			ConnMaxLifetimeMinutes int
 		}{
-			Host:     "localhost",
-			Port:     5432,
-			User:     "test_user",
-			Password: "test_password",
-			DBName:   "test_db",
-			SSLMode:  "disable",
+			Host:                   "localhost",
+			Port:                   5432,
+			User:                   "test_user",
+			Password:               "test_password",
+			DBName:                 "test_db",
+			SSLMode:                "disable",
+			MaxIdleConns:           10,
+			MaxOpenConns:           100,
+			ConnMaxLifetimeMinutes: 60,
 		},
 		Redis: struct {
 			Host     string
@@ -109,13 +121,13 @@ func TestCreateUserService(t *testing.T) {
 		Auth: struct {
 			AccessTokenDuration  int
 			RefreshTokenDuration int
-			SigningKey          string
-			HashingCost         int
+			SigningKey           string
+			HashingCost          int
 		}{
 			AccessTokenDuration:  15,
 			RefreshTokenDuration: 10080,
-			SigningKey:          "test_key",
-			HashingCost:         10,
+			SigningKey:           "test_key",
+			HashingCost:          10,
 		},
 	}
 
@@ -126,23 +138,11 @@ func TestCreateUserService(t *testing.T) {
 
 	// Test service creation
 	service, err := factory.CreateUserService()
-	
+
 	// We expect an error because we're not actually connecting to the database
 	assert.Error(t, err)
 	assert.Nil(t, service)
 	assert.Contains(t, err.Error(), "failed to create database connection")
-}
-
-func TestCreateEmailService(t *testing.T) {
-	config := Config{}
-	logger, err := zap.NewDevelopment()
-	require.NoError(t, err)
-
-	factory := NewFactory(config, logger)
-
-	service, err := factory.CreateEmailService()
-	assert.NoError(t, err)
-	assert.NotNil(t, service)
 }
 
 func TestDefaultCacheConfig(t *testing.T) {

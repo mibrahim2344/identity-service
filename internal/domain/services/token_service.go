@@ -56,9 +56,9 @@ type TokenService interface {
 
 // TokenConfig represents the configuration for token generation
 type TokenConfig struct {
-	AccessTokenDuration        time.Duration
+	AccessTokenDuration       time.Duration
 	RefreshTokenDuration      time.Duration
 	ResetTokenDuration        time.Duration
 	VerificationTokenDuration time.Duration
-	SigningKey               []byte
+	SigningKey                []byte
 }

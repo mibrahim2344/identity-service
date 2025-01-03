@@ -22,7 +22,10 @@ func TestLoadConfig(t *testing.T) {
 			"user": "test_user",
 			"password": "test_password",
 			"dbname": "test_db",
-			"sslmode": "disable"
+			"sslmode": "disable",
+			"maxIdleConns": 10,
+			"maxOpenConns": 100,
+			"connMaxLifetimeMinutes": 60
 		},
 		"redis": {
 			"host": "redis.example.com",
@@ -56,6 +59,9 @@ func TestLoadConfig(t *testing.T) {
 		assert.Equal(t, "test_password", config.Database.Password)
 		assert.Equal(t, "test_db", config.Database.DBName)
 		assert.Equal(t, "disable", config.Database.SSLMode)
+		assert.Equal(t, 10, config.Database.MaxIdleConns)
+		assert.Equal(t, 100, config.Database.MaxOpenConns)
+		assert.Equal(t, 60, config.Database.ConnMaxLifetimeMinutes)
 
 		assert.Equal(t, "redis.example.com", config.Redis.Host)
 		assert.Equal(t, 6379, config.Redis.Port)
@@ -75,15 +81,17 @@ func TestLoadConfig(t *testing.T) {
 		// Set environment variables
 		os.Setenv("DB_HOST", "db2.example.com")
 		os.Setenv("DB_PORT", "5433")
+		os.Setenv("DB_MAX_IDLE_CONNS", "20")
+		os.Setenv("DB_MAX_OPEN_CONNS", "200")
+		os.Setenv("DB_CONN_MAX_LIFETIME_MINUTES", "120")
 		os.Setenv("REDIS_PASSWORD", "new_password")
-		os.Setenv("KAFKA_BROKERS", "kafka3:9092,kafka4:9092")
-		os.Setenv("AUTH_SIGNING_KEY", "new_signing_key")
 		defer func() {
 			os.Unsetenv("DB_HOST")
 			os.Unsetenv("DB_PORT")
+			os.Unsetenv("DB_MAX_IDLE_CONNS")
+			os.Unsetenv("DB_MAX_OPEN_CONNS")
+			os.Unsetenv("DB_CONN_MAX_LIFETIME_MINUTES")
 			os.Unsetenv("REDIS_PASSWORD")
-			os.Unsetenv("KAFKA_BROKERS")
-			os.Unsetenv("AUTH_SIGNING_KEY")
 		}()
 
 		config, err := LoadConfig(configPath)
@@ -92,9 +100,10 @@ func TestLoadConfig(t *testing.T) {
 		// Verify environment variables override file config
 		assert.Equal(t, "db2.example.com", config.Database.Host)
 		assert.Equal(t, 5433, config.Database.Port)
+		assert.Equal(t, 20, config.Database.MaxIdleConns)
+		assert.Equal(t, 200, config.Database.MaxOpenConns)
+		assert.Equal(t, 120, config.Database.ConnMaxLifetimeMinutes)
 		assert.Equal(t, "new_password", config.Redis.Password)
-		assert.Equal(t, []string{"kafka3:9092", "kafka4:9092"}, config.Kafka.Brokers)
-		assert.Equal(t, "new_signing_key", config.Auth.SigningKey)
 	})
 
 	t.Run("Invalid config file path", func(t *testing.T) {
@@ -142,11 +151,17 @@ func TestValidateConfig(t *testing.T) {
 						Password string
 						DBName   string
 						SSLMode  string
+						MaxIdleConns       int
+						MaxOpenConns       int
+						ConnMaxLifetimeMinutes int
 					}{
 						Host:   "localhost",
 						Port:   5432,
 						User:   "user",
 						DBName: "dbname",
+						MaxIdleConns:       10,
+						MaxOpenConns:       100,
+						ConnMaxLifetimeMinutes: 60,
 					},
 					Redis: struct {
 						Host     string

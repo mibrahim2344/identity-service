@@ -8,6 +8,7 @@ import (
 	"github.com/mibrahim2344/identity-service/internal/interfaces/http/handlers"
 	"github.com/mibrahim2344/identity-service/internal/interfaces/http/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	httpSwagger "github.com/swaggo/http-swagger"
 	"go.uber.org/zap"
 )
 
@@ -16,7 +17,6 @@ type Router struct {
 	userService    services.UserService
 	tokenService   services.TokenService
 	metricsService services.MetricsService
-	emailService   services.EmailService
 	logger         *zap.Logger
 }
 
@@ -25,50 +25,66 @@ func NewRouter(
 	userService services.UserService,
 	tokenService services.TokenService,
 	metricsService services.MetricsService,
-	emailService services.EmailService,
 	logger *zap.Logger,
 ) *Router {
 	return &Router{
 		userService:    userService,
 		tokenService:   tokenService,
 		metricsService: metricsService,
-		emailService:   emailService,
 		logger:         logger,
 	}
 }
 
 // Setup sets up all routes and middleware
 func (r *Router) Setup() http.Handler {
+	r.logger.Info("Setting up router...")
 	router := mux.NewRouter()
 
-	// Create middleware
-	authMiddleware := middleware.NewAuthMiddleware(r.tokenService, r.metricsService, r.logger)
-	loggingMiddleware := middleware.NewLoggingMiddleware(r.logger, r.metricsService)
-
-	// Create handlers
-	userHandler := handlers.NewUserHandler(r.userService, r.metricsService, r.emailService, r.logger)
-
-	// Apply global middleware
-	router.Use(loggingMiddleware.LogRequest)
-
-	// Public routes
-	router.HandleFunc("/api/v1/users/register", userHandler.Register).Methods(http.MethodPost)
-	router.HandleFunc("/api/v1/users/login", userHandler.Login).Methods(http.MethodPost)
-	router.HandleFunc("/api/v1/users/verify-email", userHandler.VerifyEmail).Methods(http.MethodGet)
-	router.HandleFunc("/api/v1/users/request-password-reset", userHandler.RequestPasswordReset).Methods(http.MethodPost)
-	router.HandleFunc("/api/v1/users/reset-password", userHandler.ResetPassword).Methods(http.MethodPost)
-	router.HandleFunc("/api/v1/users/refresh-token", userHandler.RefreshToken).Methods(http.MethodPost)
-
-	// Protected routes
-	protected := router.PathPrefix("/api/v1").Subrouter()
-	protected.Use(authMiddleware.Authenticate)
-	protected.HandleFunc("/users/me", userHandler.GetUser).Methods(http.MethodGet)
+	// Apply CORS middleware
+	r.logger.Debug("Applying CORS middleware...")
+	router.Use(middleware.CORSMiddleware([]string{"*"}))
 
 	// Health check
+	r.logger.Debug("Setting up health check endpoint...")
 	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	}).Methods(http.MethodGet)
+
+	// API v1 routes
+	r.logger.Debug("Setting up API v1 routes...")
+	v1 := router.PathPrefix("/api/v1").Subrouter()
+
+	// Auth routes
+	r.logger.Debug("Setting up auth routes...")
+	auth := v1.PathPrefix("/auth").Subrouter()
+	userHandler := handlers.NewUserHandler(r.userService, r.metricsService, r.logger)
+	auth.HandleFunc("/register", userHandler.Register).Methods(http.MethodPost)
+	auth.HandleFunc("/login", userHandler.Login).Methods(http.MethodPost)
+	auth.HandleFunc("/refresh", userHandler.RefreshToken).Methods(http.MethodPost)
+	auth.HandleFunc("/forgot-password", userHandler.RequestPasswordReset).Methods(http.MethodPost)
+	auth.HandleFunc("/reset-password", userHandler.ResetPassword).Methods(http.MethodPost)
+	auth.HandleFunc("/verify-email", userHandler.VerifyEmail).Methods(http.MethodGet)
+
+	// Protected routes
+	r.logger.Debug("Setting up protected routes...")
+	protected := v1.PathPrefix("/").Subrouter()
+	authMiddleware := middleware.NewAuthMiddleware(r.tokenService, r.metricsService, r.logger)
+	protected.Use(authMiddleware.Authenticate)
+
+	// User routes
+	r.logger.Debug("Setting up user routes...")
+	users := protected.PathPrefix("/users").Subrouter()
+	users.HandleFunc("/me", userHandler.GetUser).Methods(http.MethodGet)
+	users.HandleFunc("/me/password", userHandler.ChangePassword).Methods(http.MethodPut)
+
+	// Swagger documentation
+	router.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
+		httpSwagger.URL("http://localhost:8080/swagger/doc.json"),
+		httpSwagger.DeepLinking(true),
+		httpSwagger.DocExpansion("none"),
+		httpSwagger.DomID("swagger-ui"),
+	))
 
 	// Metrics endpoint
 	router.Handle("/metrics", promhttp.Handler())
@@ -79,5 +95,6 @@ func (r *Router) Setup() http.Handler {
 		w.Write([]byte("not found"))
 	})
 
+	r.logger.Info("Router setup completed successfully")
 	return router
 }

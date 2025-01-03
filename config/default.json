@@ -3,15 +3,24 @@
     "host": "localhost",
     "port": 5432,
     "user": "postgres",
-    "password": "",
-    "dbname": "identity_service",
-    "sslmode": "disable"
+    "password": "postgres",
+    "dbname": "identity_db",
+    "sslmode": "disable",
+    "maxIdleConns": 10,
+    "maxOpenConns": 100,
+    "connMaxLifetimeMinutes": 60
   },
   "redis": {
     "host": "localhost",
     "port": 6379,
     "password": "",
     "db": 0
+  },
+  "cache": {
+    "defaultTTL": 3600,
+    "maxEntries": 10000,
+    "prefix": "identity",
+    "namespace": "users"
   },
   "kafka": {
     "brokers": ["localhost:9092"],
@@ -20,7 +29,7 @@
   "auth": {
     "accessTokenDuration": 15,
     "refreshTokenDuration": 10080,
-    "signingKey": "",
+    "signingKey": "your-256-bit-secret-key-here",
     "hashingCost": 10
   },
   "server": {
@@ -29,5 +38,8 @@
     "readTimeout": 15,
     "writeTimeout": 15,
     "maxHeaderBytes": 1048576
+  },
+  "webApp": {
+    "url": "http://localhost:3000"
   }
 }

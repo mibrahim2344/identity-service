@@ -14,7 +14,6 @@ import (
 type UserHandler struct {
 	userService    services.UserService
 	metricsService services.MetricsService
-	emailService   services.EmailService
 	logger         *zap.Logger
 }
 
@@ -22,13 +21,11 @@ type UserHandler struct {
 func NewUserHandler(
 	userService services.UserService,
 	metricsService services.MetricsService,
-	emailService services.EmailService,
 	logger *zap.Logger,
 ) *UserHandler {
 	return &UserHandler{
 		userService:    userService,
 		metricsService: metricsService,
-		emailService:   emailService,
 		logger:         logger,
 	}
 }
@@ -45,7 +42,7 @@ type RegisterRequest struct {
 // LoginRequest represents the request body for user login
 type LoginRequest struct {
 	EmailOrUsername string `json:"emailOrUsername"`
-	Password       string `json:"password"`
+	Password        string `json:"password"`
 }
 
 // RequestPasswordResetRequest represents the request body for password reset request
@@ -64,7 +61,22 @@ type RefreshTokenRequest struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
-// Register handles user registration
+// ChangePasswordRequest represents the request body for changing password
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
+// @Summary Register a new user
+// @Description Register a new user with the provided details
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body RegisterRequest true "User registration details"
+// @Success 201 {object} User "User created successfully"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /api/v1/auth/register [post]
 func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	defer func() {
@@ -93,7 +105,17 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusCreated, user)
 }
 
-// Login handles user login
+// @Summary User login
+// @Description Authenticate a user and return access token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body LoginRequest true "Login credentials"
+// @Success 200 {object} TokenPair "Login successful"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 401 {object} ErrorResponse "Invalid credentials"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /api/v1/auth/login [post]
 func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	defer func() {
@@ -116,51 +138,17 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, response)
 }
 
-// VerifyEmail handles email verification
-func (h *UserHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
-	defer func() {
-		h.metricsService.RecordRequest(r.Method, r.URL.Path, http.StatusOK, time.Since(start).Seconds())
-	}()
-
-	token := r.URL.Query().Get("token")
-	if token == "" {
-		h.handleError(w, r, nil, http.StatusBadRequest, "missing verification token")
-		return
-	}
-
-	if err := h.userService.VerifyEmail(r.Context(), token); err != nil {
-		h.handleError(w, r, err, http.StatusBadRequest, "invalid verification token")
-		return
-	}
-
-	h.respondJSON(w, http.StatusOK, map[string]string{"message": "email verified successfully"})
-}
-
-// GetUser handles retrieving user information
-func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
-	defer func() {
-		h.metricsService.RecordRequest(r.Method, r.URL.Path, http.StatusOK, time.Since(start).Seconds())
-	}()
-
-	userID := r.Context().Value("user_id").(string)
-	id, err := uuid.Parse(userID)
-	if err != nil {
-		h.handleError(w, r, err, http.StatusBadRequest, "invalid user ID")
-		return
-	}
-
-	user, err := h.userService.GetUser(r.Context(), id)
-	if err != nil {
-		h.handleError(w, r, err, http.StatusNotFound, "user not found")
-		return
-	}
-
-	h.respondJSON(w, http.StatusOK, user)
-}
-
-// RequestPasswordReset handles password reset request
+// @Summary Request password reset
+// @Description Send a password reset email to the user
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body RequestPasswordResetRequest true "Email address"
+// @Success 200 {object} MessageResponse "Password reset email sent"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 404 {object} ErrorResponse "User not found"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /api/v1/auth/forgot-password [post]
 func (h *UserHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	defer func() {
@@ -184,7 +172,17 @@ func (h *UserHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Reques
 	})
 }
 
-// ResetPassword handles password reset
+// @Summary Reset password
+// @Description Reset user password using reset token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body ResetPasswordRequest true "Reset token and new password"
+// @Success 200 {object} MessageResponse "Password reset successful"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 401 {object} ErrorResponse "Invalid token"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /api/v1/auth/reset-password [post]
 func (h *UserHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	defer func() {
@@ -207,7 +205,17 @@ func (h *UserHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// RefreshToken handles token refresh
+// @Summary Refresh access token
+// @Description Get a new access token using refresh token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body RefreshTokenRequest true "Refresh token"
+// @Success 200 {object} TokenResponse "Token refresh successful"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 401 {object} ErrorResponse "Invalid token"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /api/v1/auth/refresh [post]
 func (h *UserHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	defer func() {
@@ -227,6 +235,106 @@ func (h *UserHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.respondJSON(w, http.StatusOK, tokens)
+}
+
+// @Summary Get user profile
+// @Description Get the profile of the authenticated user
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} User "User profile"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /api/v1/users/me [get]
+func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	defer func() {
+		h.metricsService.RecordRequest(r.Method, r.URL.Path, http.StatusOK, time.Since(start).Seconds())
+	}()
+
+	userID := r.Context().Value("user_id").(string)
+	id, err := uuid.Parse(userID)
+	if err != nil {
+		h.handleError(w, r, err, http.StatusBadRequest, "invalid user ID")
+		return
+	}
+
+	user, err := h.userService.GetUser(r.Context(), id)
+	if err != nil {
+		h.handleError(w, r, err, http.StatusNotFound, "user not found")
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, user)
+}
+
+// @Summary Verify email address
+// @Description Verify user's email address using verification token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param token query string true "Verification token"
+// @Success 200 {object} MessageResponse "Email verified successfully"
+// @Failure 400 {object} ErrorResponse "Invalid token"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /api/v1/users/verify-email [get]
+func (h *UserHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	defer func() {
+		h.metricsService.RecordRequest(r.Method, r.URL.Path, http.StatusOK, time.Since(start).Seconds())
+	}()
+
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		h.handleError(w, r, nil, http.StatusBadRequest, "Verification token is required")
+		return
+	}
+
+	err := h.userService.VerifyEmail(r.Context(), token)
+	if err != nil {
+		h.handleError(w, r, err, http.StatusBadRequest, "Invalid verification token")
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]string{
+		"message": "Email verified successfully",
+	})
+}
+
+// @Summary Change user password
+// @Description Change the password of the authenticated user
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body ChangePasswordRequest true "Current and new password"
+// @Success 200 {object} MessageResponse "Password changed successfully"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 401 {object} ErrorResponse "Invalid current password"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /api/v1/users/me/password [put]
+func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	defer func() {
+		h.metricsService.RecordRequest(r.Method, r.URL.Path, http.StatusOK, time.Since(start).Seconds())
+	}()
+
+	var req ChangePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.handleError(w, r, err, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	userID := r.Context().Value("userID").(uuid.UUID)
+	if err := h.userService.ChangePassword(r.Context(), userID, req.CurrentPassword, req.NewPassword); err != nil {
+		h.handleError(w, r, err, http.StatusBadRequest, "failed to change password")
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]string{
+		"message": "password has been changed successfully",
+	})
 }
 
 func (h *UserHandler) handleError(w http.ResponseWriter, r *http.Request, err error, status int, message string) {

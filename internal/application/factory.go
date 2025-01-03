@@ -8,24 +8,26 @@ import (
 	"github.com/mibrahim2344/identity-service/internal/domain/services"
 	"github.com/mibrahim2344/identity-service/internal/infrastructure/auth/password"
 	"github.com/mibrahim2344/identity-service/internal/infrastructure/auth/token"
-	"github.com/mibrahim2344/identity-service/internal/infrastructure/cache/redis"
-	"github.com/mibrahim2344/identity-service/internal/infrastructure/email"
 	"github.com/mibrahim2344/identity-service/internal/infrastructure/events/kafka"
 	"github.com/mibrahim2344/identity-service/internal/infrastructure/metrics"
-	pgdb "github.com/mibrahim2344/identity-service/internal/infrastructure/postgres"
-	pgrepo "github.com/mibrahim2344/identity-service/internal/infrastructure/repositories/postgres"
+	pgdb "github.com/mibrahim2344/identity-service/internal/infrastructure/persistence/postgres"
+	pgrepo "github.com/mibrahim2344/identity-service/internal/infrastructure/persistence/postgres/repositories"
+	"github.com/mibrahim2344/identity-service/internal/infrastructure/persistence/redis"
 	"go.uber.org/zap"
 )
 
 // Config holds all the configuration needed for the application services
 type Config struct {
 	Database struct {
-		Host     string
-		Port     int
-		User     string
-		Password string
-		DBName   string
-		SSLMode  string
+		Host                   string
+		Port                   int
+		User                   string
+		Password               string
+		DBName                 string
+		SSLMode                string
+		MaxIdleConns           int
+		MaxOpenConns           int
+		ConnMaxLifetimeMinutes int
 	}
 	Redis struct {
 		Host     string
@@ -43,6 +45,15 @@ type Config struct {
 		SigningKey           string
 		HashingCost          int
 	}
+	Cache struct {
+		DefaultTTL time.Duration
+		MaxEntries int
+		Prefix     string
+		Namespace  string
+	}
+	WebApp struct {
+		URL string
+	}
 	Server struct {
 		Host           string
 		Port           int
@@ -50,7 +61,6 @@ type Config struct {
 		WriteTimeout   int // in seconds
 		MaxHeaderBytes int
 	}
-	WebAppURL string // URL of the web application frontend
 }
 
 // Factory is responsible for creating and wiring application services
@@ -97,7 +107,12 @@ func (f *Factory) CreateUserService() (services.UserService, error) {
 	userRepo := pgrepo.NewUserRepository(db)
 
 	// Create cache service
-	defaultCacheConfig := &defaultCacheConfig{}
+	defaultCacheConfig := &defaultCacheConfig{
+		defaultTTL: f.config.Cache.DefaultTTL,
+		maxEntries: f.config.Cache.MaxEntries,
+		prefix:     f.config.Cache.Prefix,
+		namespace:  f.config.Cache.Namespace,
+	}
 	cacheService := redis.NewCacheService(redisClient, defaultCacheConfig)
 
 	// Create event publisher
@@ -136,16 +151,10 @@ func (f *Factory) CreateUserService() (services.UserService, error) {
 		eventPublisher,
 		f.logger,
 		defaultCacheConfig,
-		f.config.WebAppURL,
+		f.config.WebApp.URL,
 	)
 
 	return userService, nil
-}
-
-// CreateEmailService creates and configures the email service
-func (f *Factory) CreateEmailService() (services.EmailService, error) {
-	emailService := email.NewEmailService()
-	return emailService, nil
 }
 
 // CreateMetricsService creates and configures the metrics service
@@ -169,11 +178,11 @@ func (f *Factory) CreateTokenService() (services.TokenService, error) {
 
 	// Configure token service
 	tokenConfig := services.TokenConfig{
-		AccessTokenDuration:        time.Duration(f.config.Auth.AccessTokenDuration) * time.Minute,
+		AccessTokenDuration:       time.Duration(f.config.Auth.AccessTokenDuration) * time.Minute,
 		RefreshTokenDuration:      time.Duration(f.config.Auth.RefreshTokenDuration) * time.Minute,
-		ResetTokenDuration:        24 * time.Hour,    // Default 24 hours for reset tokens
-		VerificationTokenDuration: 48 * time.Hour,    // Default 48 hours for verification tokens
-		SigningKey:               []byte(f.config.Auth.SigningKey),
+		ResetTokenDuration:        24 * time.Hour, // Default 24 hours for reset tokens
+		VerificationTokenDuration: 48 * time.Hour, // Default 48 hours for verification tokens
+		SigningKey:                []byte(f.config.Auth.SigningKey),
 	}
 
 	// Create key manager for JWT signing
@@ -194,20 +203,25 @@ func (f *Factory) Close() error {
 }
 
 // defaultCacheConfig implements services.CacheConfig
-type defaultCacheConfig struct{}
+type defaultCacheConfig struct {
+	defaultTTL time.Duration
+	maxEntries int
+	prefix     string
+	namespace  string
+}
 
 func (c *defaultCacheConfig) GetDefaultTTL() time.Duration {
-	return 24 * time.Hour // Default TTL of 24 hours
+	return c.defaultTTL
 }
 
 func (c *defaultCacheConfig) GetMaxEntries() int {
-	return 10000 // Default max entries
+	return c.maxEntries
 }
 
 func (c *defaultCacheConfig) GetPrefix() string {
-	return "identity" // Prefix for all cache keys
+	return c.prefix
 }
 
 func (c *defaultCacheConfig) GetNamespace() string {
-	return "users" // Namespace for user-related cache entries
+	return c.namespace
 }

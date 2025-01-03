@@ -26,6 +26,6 @@ type CacheService interface {
 // CacheSettings represents the configuration settings for cache operations
 type CacheSettings struct {
 	DefaultExpiration time.Duration
-	CleanupInterval  time.Duration
-	MaxEntries       int
+	CleanupInterval   time.Duration
+	MaxEntries        int
 }

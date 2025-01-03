@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mibrahim2344/identity-service/internal/application"
 )
@@ -34,14 +35,33 @@ func LoadConfig(configPath string) (application.Config, error) {
 
 // loadFromFile loads configuration from a JSON file
 func loadFromFile(path string, config *application.Config) error {
-	file, err := os.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	if err := json.Unmarshal(file, config); err != nil {
+	type configAlias application.Config
+	var rawConfig struct {
+		configAlias
+		Cache struct {
+			DefaultTTL int    `json:"defaultTTL"`
+			MaxEntries int    `json:"maxEntries"`
+			Prefix     string `json:"prefix"`
+			Namespace  string `json:"namespace"`
+		} `json:"cache"`
+	}
+
+	if err := json.Unmarshal(data, &rawConfig); err != nil {
 		return fmt.Errorf("failed to parse config file: %w", err)
 	}
+
+	var newConfig application.Config
+	newConfig = application.Config(rawConfig.configAlias)
+	newConfig.Cache.DefaultTTL = time.Duration(rawConfig.Cache.DefaultTTL) * time.Second
+	newConfig.Cache.MaxEntries = rawConfig.Cache.MaxEntries
+	newConfig.Cache.Prefix = rawConfig.Cache.Prefix
+	newConfig.Cache.Namespace = rawConfig.Cache.Namespace
+	*config = newConfig
 
 	return nil
 }
@@ -68,6 +88,21 @@ func loadFromEnv(config *application.Config) {
 	}
 	if sslMode := os.Getenv("DB_SSL_MODE"); sslMode != "" {
 		config.Database.SSLMode = sslMode
+	}
+	if maxIdleConns := os.Getenv("DB_MAX_IDLE_CONNS"); maxIdleConns != "" {
+		if mic, err := strconv.Atoi(maxIdleConns); err == nil {
+			config.Database.MaxIdleConns = mic
+		}
+	}
+	if maxOpenConns := os.Getenv("DB_MAX_OPEN_CONNS"); maxOpenConns != "" {
+		if moc, err := strconv.Atoi(maxOpenConns); err == nil {
+			config.Database.MaxOpenConns = moc
+		}
+	}
+	if connMaxLifetime := os.Getenv("DB_CONN_MAX_LIFETIME_MINUTES"); connMaxLifetime != "" {
+		if cml, err := strconv.Atoi(connMaxLifetime); err == nil {
+			config.Database.ConnMaxLifetimeMinutes = cml
+		}
 	}
 
 	// Redis configuration
