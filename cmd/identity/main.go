@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -38,9 +39,13 @@ func main() {
 	fmt.Println("Initializing logger...")
 	logger, err := zap.NewDevelopment()
 	if err != nil {
-		panic(err)
+		log.Fatalf("failed to create logger: %v", err)
 	}
-	defer logger.Sync()
+	defer func() {
+		if err := logger.Sync(); err != nil {
+			logger.Error("failed to sync logger", zap.Error(err))
+		}
+	}()
 
 	fmt.Println("Logger initialized successfully")
 

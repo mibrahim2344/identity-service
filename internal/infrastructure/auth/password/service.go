@@ -75,12 +75,13 @@ func (s *Service) GenerateRandomPassword(ctx context.Context) (string, error) {
 		minLength++
 	}
 
-	if s.config.MinLength < minLength {
+	// Use the larger of minLength and config.MinLength
+	if s.config.MinLength > minLength {
 		minLength = s.config.MinLength
 	}
 
 	// Generate random bytes
-	length := s.config.MinLength + 4 // Add some extra length for better entropy
+	length := minLength + 4 // Add some extra length for better entropy
 	randomBytes := make([]byte, length)
 	if _, err := s.entropy.Read(randomBytes); err != nil {
 		return "", fmt.Errorf("failed to generate random bytes: %w", err)

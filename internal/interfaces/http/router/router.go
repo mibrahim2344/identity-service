@@ -46,9 +46,12 @@ func (r *Router) Setup() http.Handler {
 
 	// Health check
 	r.logger.Debug("Setting up health check endpoint...")
-	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/health", func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		if err != nil {
+			r.logger.Error("failed to write response", zap.Error(err))
+		}
 	}).Methods(http.MethodGet)
 
 	// API v1 routes
@@ -90,9 +93,12 @@ func (r *Router) Setup() http.Handler {
 	router.Handle("/metrics", promhttp.Handler())
 
 	// Not found handler
-	router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("not found"))
+		_, err := w.Write([]byte("not found"))
+		if err != nil {
+			r.logger.Error("failed to write response", zap.Error(err))
+		}
 	})
 
 	r.logger.Info("Router setup completed successfully")

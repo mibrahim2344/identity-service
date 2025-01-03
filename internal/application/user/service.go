@@ -417,3 +417,29 @@ func (s *Service) ChangePassword(ctx context.Context, id uuid.UUID, currentPassw
 
 	return nil
 }
+
+// GetUserByEmailOrUsername retrieves a user by their email or username
+func (s *Service) GetUserByEmailOrUsername(ctx context.Context, identifier string) (*models.User, error) {
+	user, err := s.userRepo.GetByEmail(ctx, identifier)
+	if err == nil {
+		return user, nil
+	}
+	user, err = s.userRepo.GetByUsername(ctx, identifier)
+	if err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+	return user, nil
+}
+
+// GetUserByToken retrieves a user by their token
+func (s *Service) GetUserByToken(ctx context.Context, token string) (*models.User, error) {
+	claims, err := s.tokenService.ValidateToken(ctx, token, services.TokenTypeAccess)
+	if err != nil {
+		return nil, fmt.Errorf("invalid token: %w", err)
+	}
+	user, err := s.userRepo.GetByID(ctx, claims.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+	return user, nil
+}

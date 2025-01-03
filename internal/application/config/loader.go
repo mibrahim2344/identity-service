@@ -55,8 +55,7 @@ func loadFromFile(path string, config *application.Config) error {
 		return fmt.Errorf("failed to parse config file: %w", err)
 	}
 
-	var newConfig application.Config
-	newConfig = application.Config(rawConfig.configAlias)
+	newConfig := application.Config(rawConfig.configAlias)
 	newConfig.Cache.DefaultTTL = time.Duration(rawConfig.Cache.DefaultTTL) * time.Second
 	newConfig.Cache.MaxEntries = rawConfig.Cache.MaxEntries
 	newConfig.Cache.Prefix = rawConfig.Cache.Prefix

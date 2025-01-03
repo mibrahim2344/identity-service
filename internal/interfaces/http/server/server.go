@@ -66,24 +66,13 @@ func (s *Server) Start() error {
 	s.httpServer = &http.Server{
 		Addr:           addr,
 		Handler:        handler,
-		ReadTimeout:    time.Duration(s.config.ReadTimeout) * time.Second,
-		WriteTimeout:   time.Duration(s.config.WriteTimeout) * time.Second,
+		ReadTimeout:    s.config.ReadTimeout,
+		WriteTimeout:   s.config.WriteTimeout,
 		MaxHeaderBytes: s.config.MaxHeaderBytes,
 	}
 
 	s.logger.Info("Server is listening", zap.String("address", addr))
 	return s.httpServer.ListenAndServe()
-}
-
-// setupRoutes configures all the routes for our server
-func (s *Server) setupRoutes() http.Handler {
-	s.router = router.NewRouter(
-		s.userService,
-		s.tokenService,
-		s.metricsService,
-		s.logger,
-	)
-	return s.router.Setup()
 }
 
 // Stop gracefully stops the HTTP server
