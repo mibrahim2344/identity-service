@@ -107,12 +107,11 @@ func (f *Factory) CreateUserService() (services.UserService, error) {
 	userRepo := pgrepo.NewUserRepository(db)
 
 	// Create cache service
-	defaultCacheConfig := &defaultCacheConfig{
-		defaultTTL: f.config.Cache.DefaultTTL,
-		maxEntries: f.config.Cache.MaxEntries,
-		prefix:     f.config.Cache.Prefix,
-		namespace:  f.config.Cache.Namespace,
-	}
+	defaultCacheConfig := newDefaultCacheConfig()
+	defaultCacheConfig.defaultTTL = f.config.Cache.DefaultTTL
+	defaultCacheConfig.maxEntries = f.config.Cache.MaxEntries
+	defaultCacheConfig.prefix = f.config.Cache.Prefix
+	defaultCacheConfig.namespace = f.config.Cache.Namespace
 	cacheService := redis.NewCacheService(redisClient, defaultCacheConfig)
 
 	// Create event publisher
@@ -204,24 +203,45 @@ func (f *Factory) Close() error {
 
 // defaultCacheConfig implements services.CacheConfig
 type defaultCacheConfig struct {
-	defaultTTL time.Duration
-	maxEntries int
-	prefix     string
-	namespace  string
+	defaultTTL  time.Duration
+	maxEntries  int
+	prefix      string
+	namespace   string
+}
+
+func newDefaultCacheConfig() *defaultCacheConfig {
+	return &defaultCacheConfig{
+		defaultTTL: 24 * time.Hour,
+		maxEntries: 10000,
+		prefix:     "identity",
+		namespace:  "users",
+	}
 }
 
 func (c *defaultCacheConfig) GetDefaultTTL() time.Duration {
+	if c.defaultTTL == 0 {
+		return 24 * time.Hour
+	}
 	return c.defaultTTL
 }
 
 func (c *defaultCacheConfig) GetMaxEntries() int {
+	if c.maxEntries == 0 {
+		return 10000
+	}
 	return c.maxEntries
 }
 
 func (c *defaultCacheConfig) GetPrefix() string {
+	if c.prefix == "" {
+		return "identity"
+	}
 	return c.prefix
 }
 
 func (c *defaultCacheConfig) GetNamespace() string {
+	if c.namespace == "" {
+		return "users"
+	}
 	return c.namespace
 }

@@ -145,22 +145,22 @@ func TestValidateConfig(t *testing.T) {
 			config: func() application.Config {
 				return application.Config{
 					Database: struct {
-						Host     string
-						Port     int
-						User     string
-						Password string
-						DBName   string
-						SSLMode  string
-						MaxIdleConns       int
-						MaxOpenConns       int
+						Host                   string
+						Port                   int
+						User                   string
+						Password               string
+						DBName                 string
+						SSLMode                string
+						MaxIdleConns           int
+						MaxOpenConns           int
 						ConnMaxLifetimeMinutes int
 					}{
-						Host:   "localhost",
-						Port:   5432,
-						User:   "user",
-						DBName: "dbname",
-						MaxIdleConns:       10,
-						MaxOpenConns:       100,
+						Host:                   "localhost",
+						Port:                   5432,
+						User:                   "user",
+						DBName:                 "dbname",
+						MaxIdleConns:           10,
+						MaxOpenConns:           100,
 						ConnMaxLifetimeMinutes: 60,
 					},
 					Redis: struct {
@@ -200,6 +200,13 @@ func TestValidateConfig(t *testing.T) {
 				c.Database.Port = 5432
 				c.Database.User = "user"
 				c.Database.DBName = "dbname"
+				c.Redis.Host = "localhost"
+				c.Redis.Port = 6379
+				c.Kafka.Brokers = []string{"localhost:9092"}
+				c.Kafka.Topic = "topic"
+				c.Auth.AccessTokenDuration = 15
+				c.Auth.RefreshTokenDuration = 10080
+				c.Auth.SigningKey = "key"
 				return c
 			},
 			expectError: true,
@@ -212,6 +219,13 @@ func TestValidateConfig(t *testing.T) {
 				c.Database.Host = "localhost"
 				c.Database.User = "user"
 				c.Database.DBName = "dbname"
+				c.Redis.Host = "localhost"
+				c.Redis.Port = 6379
+				c.Kafka.Brokers = []string{"localhost:9092"}
+				c.Kafka.Topic = "topic"
+				c.Auth.AccessTokenDuration = 15
+				c.Auth.RefreshTokenDuration = 10080
+				c.Auth.SigningKey = "key"
 				return c
 			},
 			expectError: true,
@@ -221,7 +235,16 @@ func TestValidateConfig(t *testing.T) {
 			name: "Missing redis host",
 			config: func() application.Config {
 				c := application.Config{}
+				c.Database.Host = "localhost"
+				c.Database.Port = 5432
+				c.Database.User = "user"
+				c.Database.DBName = "dbname"
 				c.Redis.Port = 6379
+				c.Kafka.Brokers = []string{"localhost:9092"}
+				c.Kafka.Topic = "topic"
+				c.Auth.AccessTokenDuration = 15
+				c.Auth.RefreshTokenDuration = 10080
+				c.Auth.SigningKey = "key"
 				return c
 			},
 			expectError: true,
@@ -231,7 +254,16 @@ func TestValidateConfig(t *testing.T) {
 			name: "Missing kafka brokers",
 			config: func() application.Config {
 				c := application.Config{}
+				c.Database.Host = "localhost"
+				c.Database.Port = 5432
+				c.Database.User = "user"
+				c.Database.DBName = "dbname"
+				c.Redis.Host = "localhost"
+				c.Redis.Port = 6379
 				c.Kafka.Topic = "topic"
+				c.Auth.AccessTokenDuration = 15
+				c.Auth.RefreshTokenDuration = 10080
+				c.Auth.SigningKey = "key"
 				return c
 			},
 			expectError: true,
