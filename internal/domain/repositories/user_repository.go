@@ -21,6 +21,9 @@ type UserRepository interface {
 	// GetByUsername retrieves a user by their username
 	GetByUsername(ctx context.Context, username string) (*models.User, error)
 
+	// GetByIdentifier retrieves a user by email or username
+	GetByIdentifier(ctx context.Context, identifier string) (*models.User, error)
+
 	// Update updates an existing user
 	Update(ctx context.Context, user *models.User) error
 

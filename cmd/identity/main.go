@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/mibrahim2344/identity-service/docs" // Import swagger docs
+	"github.com/mibrahim2344/identity-service/docs"
 	"github.com/mibrahim2344/identity-service/internal/application/config"
 	"github.com/mibrahim2344/identity-service/internal/application/user"
 	"github.com/mibrahim2344/identity-service/internal/infrastructure/events/kafka"
@@ -30,6 +30,14 @@ func main() {
 	os.Stdout.Sync()
 
 	fmt.Println("Starting identity service...")
+
+	// Swagger docs info
+	docs.SwaggerInfo.Title = "Identity Service API"
+	docs.SwaggerInfo.Description = "API for user authentication and management"
+	docs.SwaggerInfo.Version = "1.0"
+	docs.SwaggerInfo.Host = "localhost:8080"
+	docs.SwaggerInfo.BasePath = ""
+	docs.SwaggerInfo.Schemes = []string{"http"}
 
 	// Initialize context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())

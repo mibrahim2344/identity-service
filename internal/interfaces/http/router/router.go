@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/mibrahim2344/identity-service/docs"
 	"github.com/mibrahim2344/identity-service/internal/domain/services"
 	"github.com/mibrahim2344/identity-service/internal/interfaces/http/handlers"
 	"github.com/mibrahim2344/identity-service/internal/interfaces/http/middleware"
@@ -82,12 +83,19 @@ func (r *Router) Setup() http.Handler {
 	users.HandleFunc("/me/password", userHandler.ChangePassword).Methods(http.MethodPut)
 
 	// Swagger documentation
+	docs.SwaggerInfo.BasePath = "/api/v1"
 	router.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
-		httpSwagger.URL("http://localhost:8080/swagger/doc.json"),
+		httpSwagger.URL("doc.json"),
 		httpSwagger.DeepLinking(true),
-		httpSwagger.DocExpansion("none"),
+		httpSwagger.DocExpansion("list"),
 		httpSwagger.DomID("swagger-ui"),
 	))
+
+	// Serve swagger.json directly
+	router.HandleFunc("/swagger/doc.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		http.ServeFile(w, r, "docs/swagger.json")
+	})
 
 	// Metrics endpoint
 	router.Handle("/metrics", promhttp.Handler())

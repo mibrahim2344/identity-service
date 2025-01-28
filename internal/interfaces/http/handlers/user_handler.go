@@ -76,7 +76,7 @@ type ChangePasswordRequest struct {
 // @Success 201 {object} User "User created successfully"
 // @Failure 400 {object} ErrorResponse "Invalid request"
 // @Failure 500 {object} ErrorResponse "Internal server error"
-// @Router /api/v1/auth/register [post]
+// @Router /auth/register [post]
 func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	defer func() {
@@ -115,7 +115,7 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} ErrorResponse "Invalid request"
 // @Failure 401 {object} ErrorResponse "Invalid credentials"
 // @Failure 500 {object} ErrorResponse "Internal server error"
-// @Router /api/v1/auth/login [post]
+// @Router /auth/login [post]
 func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	defer func() {
@@ -148,7 +148,7 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} ErrorResponse "Invalid request"
 // @Failure 404 {object} ErrorResponse "User not found"
 // @Failure 500 {object} ErrorResponse "Internal server error"
-// @Router /api/v1/auth/forgot-password [post]
+// @Router /auth/forgot-password [post]
 func (h *UserHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	defer func() {
@@ -182,7 +182,7 @@ func (h *UserHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Reques
 // @Failure 400 {object} ErrorResponse "Invalid request"
 // @Failure 401 {object} ErrorResponse "Invalid token"
 // @Failure 500 {object} ErrorResponse "Internal server error"
-// @Router /api/v1/auth/reset-password [post]
+// @Router /auth/reset-password [post]
 func (h *UserHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	defer func() {
@@ -215,7 +215,7 @@ func (h *UserHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} ErrorResponse "Invalid request"
 // @Failure 401 {object} ErrorResponse "Invalid token"
 // @Failure 500 {object} ErrorResponse "Internal server error"
-// @Router /api/v1/auth/refresh [post]
+// @Router /auth/refresh [post]
 func (h *UserHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	defer func() {
@@ -246,7 +246,7 @@ func (h *UserHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} User "User profile"
 // @Failure 401 {object} ErrorResponse "Unauthorized"
 // @Failure 500 {object} ErrorResponse "Internal server error"
-// @Router /api/v1/users/me [get]
+// @Router /users/me [get]
 func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	defer func() {
@@ -278,7 +278,7 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} MessageResponse "Email verified successfully"
 // @Failure 400 {object} ErrorResponse "Invalid token"
 // @Failure 500 {object} ErrorResponse "Internal server error"
-// @Router /api/v1/users/verify-email [get]
+// @Router /users/verify-email [get]
 func (h *UserHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	defer func() {
@@ -313,7 +313,7 @@ func (h *UserHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} ErrorResponse "Invalid request"
 // @Failure 401 {object} ErrorResponse "Invalid current password"
 // @Failure 500 {object} ErrorResponse "Internal server error"
-// @Router /api/v1/users/me/password [put]
+// @Router /users/me/password [put]
 func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	defer func() {

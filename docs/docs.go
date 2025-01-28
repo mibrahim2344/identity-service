@@ -15,7 +15,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/v1/auth/forgot-password": {
+        "/auth/forgot-password": {
             "post": {
                 "description": "Send a password reset email to the user",
                 "consumes": [
@@ -67,7 +67,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/auth/login": {
+        "/auth/login": {
             "post": {
                 "description": "Authenticate a user and return access token",
                 "consumes": [
@@ -119,7 +119,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/auth/refresh": {
+        "/auth/refresh": {
             "post": {
                 "description": "Get a new access token using refresh token",
                 "consumes": [
@@ -171,7 +171,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/auth/register": {
+        "/auth/register": {
             "post": {
                 "description": "Register a new user with the provided details",
                 "consumes": [
@@ -217,7 +217,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/auth/reset-password": {
+        "/auth/reset-password": {
             "post": {
                 "description": "Reset user password using reset token",
                 "consumes": [
@@ -269,7 +269,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/users/me": {
+        "/users/me": {
             "get": {
                 "security": [
                     {
@@ -309,7 +309,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/users/me/password": {
+        "/users/me/password": {
             "put": {
                 "security": [
                     {
@@ -366,7 +366,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/users/verify-email": {
+        "/users/verify-email": {
             "get": {
                 "description": "Verify user's email address using verification token",
                 "consumes": [

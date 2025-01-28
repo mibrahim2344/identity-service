@@ -55,6 +55,16 @@ func (r *Repository) GetByUsername(ctx context.Context, username string) (*model
 	return &user, nil
 }
 
+// GetByIdentifier retrieves a user by their email or username
+func (r *Repository) GetByIdentifier(ctx context.Context, identifier string) (*models.User, error) {
+	var user models.User
+	err := r.db.WithContext(ctx).Where("email = ? OR username = ?", identifier, identifier).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 // Update updates a user
 func (r *Repository) Update(ctx context.Context, user *models.User) error {
 	return r.db.WithContext(ctx).Save(user).Error

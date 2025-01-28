@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"github.com/google/uuid"
+	"github.com/mibrahim2344/identity-service/internal/domain/errors"
 	"github.com/mibrahim2344/identity-service/internal/domain/models"
 )
 
@@ -41,6 +42,42 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*models.User, error) {
 	// Implementation here
 	return nil, nil
+}
+
+// GetByIdentifier retrieves a user by email or username
+func (r *UserRepository) GetByIdentifier(ctx context.Context, identifier string) (*models.User, error) {
+	query := `
+		SELECT id, email, username, password_hash, first_name, last_name, role, 
+		       email_verified, created_at, updated_at, last_login_at, deleted_at
+		FROM users 
+		WHERE (email = $1 OR username = $1) AND deleted_at IS NULL
+		LIMIT 1
+	`
+	
+	user := &models.User{}
+	err := r.db.QueryRowContext(ctx, query, identifier).Scan(
+		&user.ID,
+		&user.Email,
+		&user.Username,
+		&user.PasswordHash,
+		&user.FirstName,
+		&user.LastName,
+		&user.Role,
+		&user.EmailVerified,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+		&user.LastLoginAt,
+		&user.DeletedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, errors.WrapError("GetByIdentifier", errors.ErrUserNotFound)
+	}
+	if err != nil {
+		return nil, errors.WrapError("GetByIdentifier", err)
+	}
+
+	return user, nil
 }
 
 // Update updates a user

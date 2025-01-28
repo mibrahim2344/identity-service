@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.22.0-alpine AS builder
 
 WORKDIR /app
 
@@ -16,7 +16,7 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN CGO_ENABLED=1 GOOS=linux go build -o main ./cmd/api
+RUN CGO_ENABLED=1 GOOS=linux go build -o main ./cmd/identity
 
 # Final stage
 FROM alpine:latest
@@ -26,11 +26,10 @@ WORKDIR /app
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates
 
-# Copy binary from builder
+# Copy binary and config from builder
 COPY --from=builder /app/main .
-
-# Copy any additional configuration files if needed
 COPY --from=builder /app/config ./config
+COPY --from=builder /app/docs/swagger.json ./docs/swagger.json
 
 EXPOSE 8080
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/mibrahim2344/identity-service/internal/domain/errors"
 	"github.com/mibrahim2344/identity-service/internal/domain/events"
 	"github.com/mibrahim2344/identity-service/internal/domain/models"
 	"github.com/mibrahim2344/identity-service/internal/domain/repositories"
@@ -47,10 +48,34 @@ func NewService(
 	}
 }
 
+// Helper methods for common operations
+
+func (s *Service) publishUserEvent(ctx context.Context, eventType string, event interface{}) {
+	if err := s.eventPublisher.PublishUserEvent(ctx, eventType, event); err != nil {
+		s.logger.Error("failed to publish event",
+			zap.String("eventType", eventType),
+			zap.Error(err))
+	}
+}
+
+func (s *Service) validateTokenAndGetUser(ctx context.Context, token string, tokenType services.TokenType) (*models.User, error) {
+	claims, err := s.tokenService.ValidateToken(ctx, token, tokenType)
+	if err != nil {
+		return nil, errors.WrapError("validateTokenAndGetUser", errors.ErrInvalidToken)
+	}
+
+	user, err := s.userRepo.GetByID(ctx, claims.UserID)
+	if err != nil {
+		return nil, errors.WrapError("validateTokenAndGetUser", err)
+	}
+
+	return user, nil
+}
+
 // RegisterUser registers a new user
 func (s *Service) RegisterUser(ctx context.Context, input services.RegisterUserInput) (*models.User, error) {
 	// Check if user exists
-	existingUser, err := s.userRepo.GetByEmail(ctx, input.Email)
+	existingUser, err := s.userRepo.GetByIdentifier(ctx, input.Email)
 	if err == nil && existingUser != nil {
 		return nil, services.ErrUserAlreadyExists
 	}
@@ -95,9 +120,9 @@ func (s *Service) Login(ctx context.Context, input services.LoginUserInput) (*se
 	var err error
 
 	if input.Email != "" {
-		user, err = s.userRepo.GetByEmail(ctx, input.Email)
+		user, err = s.userRepo.GetByIdentifier(ctx, input.Email)
 	} else if input.Username != "" {
-		user, err = s.userRepo.GetByUsername(ctx, input.Username)
+		user, err = s.userRepo.GetByIdentifier(ctx, input.Username)
 	} else {
 		return nil, services.ErrInvalidCredentials
 	}
@@ -148,10 +173,10 @@ func (s *Service) AuthenticateUser(ctx context.Context, emailOrUsername, passwor
 	var err error
 
 	// Try to find user by email first
-	user, err = s.userRepo.GetByEmail(ctx, emailOrUsername)
+	user, err = s.userRepo.GetByIdentifier(ctx, emailOrUsername)
 	if err != nil {
 		// If not found by email, try username
-		user, err = s.userRepo.GetByUsername(ctx, emailOrUsername)
+		user, err = s.userRepo.GetByIdentifier(ctx, emailOrUsername)
 		if err != nil {
 			return nil, services.ErrInvalidCredentials
 		}
@@ -183,19 +208,17 @@ func (s *Service) VerifyEmail(ctx context.Context, token string) error {
 	}
 
 	// Publish email verified event
-	if err := s.eventPublisher.PublishUserEvent(ctx, string(events.UserVerified), events.NewUserVerifiedEvent(
+	s.publishUserEvent(ctx, string(events.UserVerified), events.NewUserVerifiedEvent(
 		user.ID,
 		user.Email,
-	)); err != nil {
-		s.logger.Error("failed to publish user verified event", zap.Error(err))
-	}
+	))
 
 	return nil
 }
 
 // RequestPasswordReset initiates the password reset process
 func (s *Service) RequestPasswordReset(ctx context.Context, email string) error {
-	user, err := s.userRepo.GetByEmail(ctx, email)
+	user, err := s.userRepo.GetByIdentifier(ctx, email)
 	if err != nil {
 		return services.ErrNotFound
 	}
@@ -213,13 +236,11 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string) error 
 
 	// Publish password reset requested event
 	resetLink := fmt.Sprintf("%s/reset-password?token=%s", s.webAppURL, token)
-	if err := s.eventPublisher.PublishUserEvent(ctx, string(events.UserPasswordReset), events.NewUserPasswordResetEvent(
+	s.publishUserEvent(ctx, string(events.UserPasswordReset), events.NewUserPasswordResetEvent(
 		user.ID,
 		user.Email,
 		resetLink,
-	)); err != nil {
-		s.logger.Error("failed to publish password reset event", zap.Error(err))
-	}
+	))
 
 	return nil
 }
@@ -251,12 +272,10 @@ func (s *Service) ResetPassword(ctx context.Context, token, newPassword string) 
 	}
 
 	// Publish password changed event
-	if err := s.eventPublisher.PublishUserEvent(ctx, string(events.UserPasswordChange), events.NewUserPasswordChangedEvent(
+	s.publishUserEvent(ctx, string(events.UserPasswordChange), events.NewUserPasswordChangedEvent(
 		user.ID,
 		user.Email,
-	)); err != nil {
-		s.logger.Error("failed to publish password changed event", zap.Error(err))
-	}
+	))
 
 	// Revoke all existing tokens
 	if err := s.tokenService.RevokeToken(ctx, token); err != nil {
@@ -334,7 +353,7 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, input services.U
 	}
 
 	if input.Email != "" && input.Email != user.Email {
-		existingUser, err := s.userRepo.GetByEmail(ctx, input.Email)
+		existingUser, err := s.userRepo.GetByIdentifier(ctx, input.Email)
 		if err == nil && existingUser != nil && existingUser.ID != user.ID {
 			return nil, services.ErrEmailAlreadyExists
 		}
@@ -343,7 +362,7 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, input services.U
 	}
 
 	if input.Username != "" && input.Username != user.Username {
-		existingUser, err := s.userRepo.GetByUsername(ctx, input.Username)
+		existingUser, err := s.userRepo.GetByIdentifier(ctx, input.Username)
 		if err == nil && existingUser != nil && existingUser.ID != user.ID {
 			return nil, services.ErrUsernameAlreadyExists
 		}
@@ -369,77 +388,50 @@ func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	}
 
 	// Publish user deleted event
-	event := events.NewUserDeletedEvent(user.ID, user.Email)
-	if err := s.eventPublisher.PublishUserEvent(ctx, "user.deleted", event); err != nil {
-		s.logger.Error("failed to publish user deleted event", zap.Error(err))
-	}
+	s.publishUserEvent(ctx, "user.deleted", events.NewUserDeletedEvent(user.ID, user.Email))
 
 	return nil
 }
 
 // ChangePassword changes a user's password
 func (s *Service) ChangePassword(ctx context.Context, id uuid.UUID, currentPassword, newPassword string) error {
-	// Get user
 	user, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
-		return fmt.Errorf("user not found: %w", err)
+		return errors.WrapError("ChangePassword", err)
 	}
 
-	// Verify current password
 	if err := s.passwordService.VerifyPassword(ctx, currentPassword, user.PasswordHash); err != nil {
-		return services.ErrInvalidCredentials
+		return errors.WrapError("ChangePassword", errors.ErrInvalidCredentials)
 	}
 
-	// Validate new password
-	if err := s.passwordService.ValidatePassword(ctx, newPassword); err != nil {
-		return fmt.Errorf("invalid new password: %w", err)
-	}
-
-	// Hash new password
 	hashedPassword, err := s.passwordService.HashPassword(ctx, newPassword)
 	if err != nil {
-		return fmt.Errorf("failed to hash password: %w", err)
+		return errors.WrapError("ChangePassword", err)
 	}
 
-	// Update password
 	user.PasswordHash = hashedPassword
 	if err := s.userRepo.Update(ctx, user); err != nil {
-		return fmt.Errorf("failed to update password: %w", err)
+		return errors.WrapError("ChangePassword", err)
 	}
 
-	// Publish password changed event
-	if err := s.eventPublisher.PublishUserEvent(ctx, string(events.UserPasswordChange), events.NewUserPasswordChangedEvent(
+	s.publishUserEvent(ctx, string(events.UserPasswordChange), events.NewUserPasswordChangedEvent(
 		user.ID,
 		user.Email,
-	)); err != nil {
-		s.logger.Error("failed to publish password changed event", zap.Error(err))
-	}
+	))
 
 	return nil
 }
 
 // GetUserByEmailOrUsername retrieves a user by their email or username
 func (s *Service) GetUserByEmailOrUsername(ctx context.Context, identifier string) (*models.User, error) {
-	user, err := s.userRepo.GetByEmail(ctx, identifier)
-	if err == nil {
-		return user, nil
-	}
-	user, err = s.userRepo.GetByUsername(ctx, identifier)
+	user, err := s.userRepo.GetByIdentifier(ctx, identifier)
 	if err != nil {
-		return nil, fmt.Errorf("user not found: %w", err)
+		return nil, errors.WrapError("GetUserByEmailOrUsername", err)
 	}
 	return user, nil
 }
 
 // GetUserByToken retrieves a user by their token
 func (s *Service) GetUserByToken(ctx context.Context, token string) (*models.User, error) {
-	claims, err := s.tokenService.ValidateToken(ctx, token, services.TokenTypeAccess)
-	if err != nil {
-		return nil, fmt.Errorf("invalid token: %w", err)
-	}
-	user, err := s.userRepo.GetByID(ctx, claims.UserID)
-	if err != nil {
-		return nil, fmt.Errorf("user not found: %w", err)
-	}
-	return user, nil
+	return s.validateTokenAndGetUser(ctx, token, services.TokenTypeAccess)
 }

@@ -29,6 +29,8 @@ type User struct {
 	Username       string         `gorm:"type:varchar(255);uniqueIndex" json:"username"`
 	PasswordHash   string         `gorm:"type:varchar(255)" json:"-"`
 	Status         UserStatus     `gorm:"type:user_status;default:'pending'" json:"status"`
+	FirstName      string         `gorm:"type:varchar(255)" json:"first_name"`
+	LastName       string         `gorm:"type:varchar(255)" json:"last_name"`
 	Role           Role          `gorm:"type:user_role;default:'user'" json:"role"`
 	EmailVerified  bool          `gorm:"default:false" json:"email_verified"`
 	CreatedAt      time.Time     `gorm:"not null" json:"created_at"`

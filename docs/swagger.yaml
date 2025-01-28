@@ -93,7 +93,7 @@ definitions:
 info:
   contact: {}
 paths:
-  /api/v1/auth/forgot-password:
+  /auth/forgot-password:
     post:
       consumes:
       - application/json
@@ -127,7 +127,7 @@ paths:
       summary: Request password reset
       tags:
       - auth
-  /api/v1/auth/login:
+  /auth/login:
     post:
       consumes:
       - application/json
@@ -161,7 +161,7 @@ paths:
       summary: User login
       tags:
       - auth
-  /api/v1/auth/refresh:
+  /auth/refresh:
     post:
       consumes:
       - application/json
@@ -195,7 +195,7 @@ paths:
       summary: Refresh access token
       tags:
       - auth
-  /api/v1/auth/register:
+  /auth/register:
     post:
       consumes:
       - application/json
@@ -225,7 +225,7 @@ paths:
       summary: Register a new user
       tags:
       - auth
-  /api/v1/auth/reset-password:
+  /auth/reset-password:
     post:
       consumes:
       - application/json
@@ -259,7 +259,7 @@ paths:
       summary: Reset password
       tags:
       - auth
-  /api/v1/users/me:
+  /users/me:
     get:
       consumes:
       - application/json
@@ -284,7 +284,7 @@ paths:
       summary: Get user profile
       tags:
       - users
-  /api/v1/users/me/password:
+  /users/me/password:
     put:
       consumes:
       - application/json
@@ -320,7 +320,7 @@ paths:
       summary: Change user password
       tags:
       - users
-  /api/v1/users/verify-email:
+  /users/verify-email:
     get:
       consumes:
       - application/json
